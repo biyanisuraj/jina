@@ -225,8 +225,6 @@ def test_batching_multi():
     data = [data0, data1, data2]
     result = instance.f(*data)
     assert result.shape == (4, 12)
-    assert len(result) == 4
-    assert len(result[0]) == 12
     assert len(instance.batching) == 2
     for batch in instance.batching:
         assert batch.shape == (2, 12)

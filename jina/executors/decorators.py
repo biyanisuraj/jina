@@ -313,29 +313,30 @@ def batching_multi_input(func: Callable[[Any], np.ndarray] = None, *,
         def arg_wrapper(*args, **kwargs):
             # priority: decorator > class_attribute
             # by default data is in args[1:] (self needs to be taken into account)
-            data_args = [args[slice_on + i] for i in range(0, num_data)]
-
-            data = list(zip(*data_args))
-            args = list(args)
-
             b_size = batch_size or getattr(args[0], 'batch_size', None)
             # no batching if b_size is None
             if b_size is None:
                 return func(*args, **kwargs)
+
+            data_args = [args[slice_on + i] for i in range(0, num_data)]
+            args = list(args)
 
             default_logger.info(
                 f'batching enabled for {func.__qualname__} batch_size={b_size} '
                 f'num_batch={num_batch} axis={split_over_axis}')
 
             # assume all datas have the same length
-            total_size = _get_total_size(data, b_size, num_batch, split_over_axis)
+            total_size = _get_total_size(args[slice_on], b_size, num_batch, split_over_axis)
             final_result = []
+            data_iterators = [batch_iterator(args[slice_on + i][:total_size], b_size, split_over_axis) for i in
+                              range(0, num_data)]
 
-            for multiple_batch in batch_iterator(data[:total_size], b_size, split_over_axis):
-                multiple_batch = list(zip(*multiple_batch))
-
-                for idx, data_batch in enumerate(multiple_batch):
-                    args[slice_on + idx] = data_batch
+            for batch in data_iterators[0]:
+                for idx in range(0, num_data):
+                    if idx == 0:
+                        args[slice_on + idx] = batch
+                    else:
+                        args[slice_on + idx] = next(data_iterators[idx])
 
                 r = func(*args, **kwargs)
 
